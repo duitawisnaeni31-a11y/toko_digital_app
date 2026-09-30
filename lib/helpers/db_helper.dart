@@ -1,51 +1,47 @@
-import 'dart:io';
-import 'package:flutter/material.dart';
+import 'package:sqflite/sqflite.dart';
+import 'package:path/path.dart';
+import '../models/product_model.dart';
+import '../models/cart_item_model.dart';
 
-class AppHelper {
-  // 1. Helper untuk Format Angka ke Rupiah
-  static String formatRupiah(double number) {
-    return 'Rp ${number.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}';
+class DBHelper {
+  static final DBHelper _instance = DBHelper._internal();
+  factory DBHelper() => _instance;
+  DBHelper._internal();
+
+  static Database? _database;
+
+  Future<Database> get database async {
+    if (_database != null) return _database!;
+    _database = await _initDB();
+    return _database!;
   }
 
-  // 2. Helper Pemanggil Gambar (Support Galeri Android, Network URL, & Asset)
-  static Widget buildProductImage(String? imagePath, {Color iconColor = const Color(0xFF801B38)}) {
-    if (imagePath == null || imagePath.isEmpty) {
-      return Center(
-        child: Icon(
-          Icons.cake_rounded,
-          size: 45,
-          color: iconColor.withOpacity(0.6),
-        ),
-      );
-    }
+  Future<Database> _initDB() async {
+    String dbPath = await getDatabasesPath();
+    String path = join(dbPath, 'toko_digital.db');
 
-    if (imagePath.startsWith('assets/')) {
-      return Image.asset(
-        imagePath,
-        fit: BoxFit.cover,
-        errorBuilder: (ctx, err, stack) => Center(
-          child: Icon(Icons.cake_rounded, size: 45, color: iconColor),
-        ),
-      );
-    }
+    return await openDatabase(
+      path,
+      version: 1,
+      onCreate: (db, version) async {
+        await db.execute('''
+          CREATE TABLE master_products (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            price REAL
+          )
+        ''');
 
-    if (imagePath.startsWith('http')) {
-      return Image.network(
-        imagePath,
-        fit: BoxFit.cover,
-        errorBuilder: (ctx, err, stack) => Center(
-          child: Icon(Icons.cake_rounded, size: 45, color: iconColor),
-        ),
-      );
-    }
-
-    // Membaca File Gambar dari Galeri HP Android
-    return Image.file(
-      File(imagePath),
-      fit: BoxFit.cover,
-      errorBuilder: (ctx, err, stack) => Center(
-        child: Icon(Icons.cake_rounded, size: 45, color: iconColor),
-      ),
+        await db.execute('''
+          CREATE TABLE local_cart (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id INTEGER,
+            name TEXT,
+            price REAL,
+            quantity INTEGER
+          )
+        ''');
+      },
     );
   }
 }
